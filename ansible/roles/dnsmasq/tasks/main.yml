@@ -1,0 +1,53 @@
+# https://kifarunix.com/configure-local-dns-server-using-dnsmasq-on-ubuntu-20-04/
+# kubectl -n kube-system edit configmap/coredns
+#         forward . /etc/resolv.conf {
+#          policy sequential
+#          prefer_udp
+#        }
+# kubectl rollout restart -n kube-system deployment/coredns
+# /var/snap/microk8s/current/args/kubelet (--resolv-conf=/etc/resolv.conf)
+#service snap.microk8s.daemon-kubelet restart
+- name: Stop service systemd-resolved
+  systemd:
+    name: systemd-resolved
+    state: stopped
+    enabled: false
+  become: true
+
+- name: Template /etc/resolv.conf
+  template:
+    src: resolv.conf
+    dest: /etc/resolv.conf
+  register: resolv
+  become: true
+
+
+- name: Template /etc/dnsmasq.conf
+  template:
+    src: dnsmasq.conf
+    dest: /etc/dnsmasq.conf
+  register: dnsmasq
+  become: true
+
+- name: Install dnsmasq
+  apt:
+    name: dnsmasq
+    state: present
+  become: true
+
+
+
+- name: restart dnsmasq
+  service:
+    name: dnsmasq
+    state: restarted
+  become: true
+  when: dnsmasq.changed
+
+- name: start dnsmasq
+  service:
+    name: dnsmasq
+    state: started
+    enabled: yes
+  become: true
+

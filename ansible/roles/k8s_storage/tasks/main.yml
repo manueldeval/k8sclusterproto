@@ -1,0 +1,29 @@
+- name: "Check if the storage class exists"
+  shell: microk8s.kubectl get storageclass | grep "glusterfs (default)" | wc -l
+  register: number_of_storage_class
+  changed_when: false
+  become: true
+
+- name: Create storage class
+  block:
+    - name: "Create k8s yml dir"
+      file:
+        path: /root/k8s/k8s_storage/
+        state: directory
+    - name: Create storage class file
+      template:
+        src: "{{item}}"
+        dest: "/root/k8s/k8s_storage/{{item}}"
+      with_items:
+        - storage_class.yml
+        - pvc.yml
+    - name: Push storage file to k8s
+      shell:
+        cmd: microk8s.kubectl create -f /root/k8s/k8s_storage/storage_class.yml
+    - name: Create demo PVC
+      shell:
+        cmd: microk8s.kubectl create -f /root/k8s/k8s_storage/pvc.yml
+  when: number_of_storage_class.stdout == "0"
+  become: true
+
+

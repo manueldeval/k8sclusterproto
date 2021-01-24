@@ -1,0 +1,83 @@
+
+require 'yaml'
+
+settings = YAML.load_file '../config.yml'
+servers = settings['servers']
+
+def get_groups_from_servers(servers)
+    groupNames=Set[]
+    servers.each do |server|
+        group = server["groups"]
+        groupNames.merge(group)
+    end
+
+    groups=Hash[]
+    groupNames.each do |name|
+        groups[name]=[]
+    end
+
+    servers.each do |server|
+        server["groups"].each do |grp|
+            groups[grp]<<server
+        end
+    end
+    groups
+end
+
+def create_inventory(servers)
+    groups = get_groups_from_servers(servers)
+    File.open("./hosts.generated" ,'w') do |f|
+        servers.each do |srv|
+            f.write "#{srv['name']} ansible_host=#{srv['ip']} ansible_user=vagrant service_ip=#{srv['ip']} hostname=#{srv['name']}\n"
+        end
+
+        groups.each do |grp,srvs|
+            f.write "\n[#{grp}]\n"
+            srvs.each do |srv|
+                f.write "#{srv['name']}\n"
+            end
+        end
+        
+        f.write "\n"
+        f.write "[all:vars]\n"
+        f.write "ansible_python_interpreter=/usr/bin/python3\n"
+        f.write "ansible_ssh_user=vagrant\n"
+        f.write "ansible_ssh_private_key_file=~/.ssh/id_rsa\n"
+    end
+end
+
+create_inventory(servers)
+
+Vagrant.configure("2") do |config|
+    
+    servers.each do |opts|
+        config.vm.define opts["name"] do |config|
+            config.vm.box = opts["name"]
+            config.vm.hostname = opts["name"]
+            config.vm.network :private_network, :ip => opts["ip"]
+            config.vm.box = "peru/ubuntu-20.04-server-amd64"
+            config.vm.provider :libvirt do |libvirt|
+                libvirt.memory = opts["memory"]
+                libvirt.cpus = opts["cpus"]
+            end
+            if opts.key?("second_hd")
+                config.vm.provider :libvirt do |libvirt|
+                    libvirt.storage :file, 
+                        :size => "#{opts['second_hd']}G", 
+                        :device => 'vdb'
+                end
+            end
+
+            config.vm.provision "ssh_keys",
+                type: "file",
+                preserve_order: true,
+                source: "~/.ssh/id_rsa.pub",
+                destination: "/home/vagrant/.ssh/me.pub"
+            config.vm.provision "bootstrap", 
+                type: "shell",
+                preserve_order: true,
+                path: "bootstrap.sh"
+        end
+    end
+end
+

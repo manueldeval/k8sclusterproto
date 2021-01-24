@@ -1,0 +1,26 @@
+
+
+- name: "Create k8s yml dir"
+  file:
+    path: /root/k8s/coredns/
+    state: directory
+  become: true
+
+- name: Create corensconfig
+  template:
+    src: "configmap.yml"
+    dest: "/root/k8s/coredns/configmap.yml"
+  become: true
+  register: configmap
+
+- name: Update configmap
+  shell:
+    cmd: microk8s.kubectl apply -f /root/k8s/coredns/configmap.yml
+  when: configmap.changed
+  become: true
+
+- name: Restart coredns pod
+  shell:
+    cmd: microk8s.kubectl rollout restart -n kube-system deployment/coredns
+  when: configmap.changed
+  become: true

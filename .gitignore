@@ -1,0 +1,7 @@
+vagrant/.vagrant
+hosts.generated
+dex/
+identity/
+ldapsql/
+registry/
+kubernetes/config

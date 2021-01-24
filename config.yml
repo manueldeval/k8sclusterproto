@@ -1,0 +1,35 @@
+servers:
+  - name: kmaster1
+    cpus: 2
+    memory: 2048
+    ip: 10.20.30.40
+    second_hd: 25
+    groups:
+      - kubernetes
+      - kubernetes_master
+      - gluster
+      - heketi
+  - name: kworker1
+    cpus: 2
+    memory: 2048
+    ip: 10.20.30.41
+    second_hd: 25
+    groups:
+      - kubernetes
+      - kubernetes_worker
+      - gluster
+  - name: kworker2
+    cpus: 2
+    memory: 2048
+    ip: 10.20.30.42
+    second_hd: 25
+    groups:
+      - kubernetes
+      - kubernetes_worker
+      - gluster
+  - name: kgateway
+    cpus: 1
+    memory: 1024
+    ip: 10.20.30.43
+    groups:
+      - gateway

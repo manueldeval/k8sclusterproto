@@ -1,0 +1,10 @@
+- name: Add hosts resolution for all nodes on each node
+  lineinfile:
+    path: "/etc/hosts"
+    regexp: "{{host}}"
+    line:  "{{hostvars[host]['service_ip']}} {{hostvars[host]['hostname']}}"
+    state: present
+  become: yes
+  with_items: "{{ groups['all'] }}"
+  loop_control:
+    loop_var: host

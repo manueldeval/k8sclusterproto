@@ -1,0 +1,17 @@
+- name: "Get ip of master"
+  debug:
+    msg: "Current name: {{ inventory_hostname }} IP master:{{ microk8s_master_ip }}"
+  become: true
+
+- name: "Am i already in the master cluster?"
+  shell:
+    cmd: "microk8s.kubectl get nodes | grep {{ microk8s_master_hostname }} | wc -l"
+  become: true
+  changed_when: false
+  register: get_nodes_contents
+
+
+- name: "Register node"
+  include: register.yml
+  when: get_nodes_contents.stdout == "0"
+  become: true

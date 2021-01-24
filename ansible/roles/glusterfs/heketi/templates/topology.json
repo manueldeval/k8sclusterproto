@@ -1,0 +1,17 @@
+{
+  "clusters": [
+    {
+      "nodes": [
+        {% for host in groups[gluster_hosts_group] %}
+          { 
+            "node": { "hostnames": { "manage": [ "{{  hostvars[host]['hostname'] }}" ], "storage": [ "{{ hostvars[host]['service_ip']}}" ] }, "zone": 1 },
+            "devices": [ { "name":"{{ heketi_device }}", "destroydata": true } ]
+          }
+          {% if not loop.last %}
+          , 
+          {% endif %}
+        {% endfor %}
+      ]
+    }
+  ]
+}

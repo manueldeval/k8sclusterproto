@@ -1,0 +1,144 @@
+# https://github.com/justmeandopensource/glusterfs/tree/master/glusterfs-heketi-demo
+# https://www.youtube.com/watch?v=9i6EDR5GYw0&list=PL34sAs7_26wOwCvth-EjdgGsHpTwbulWq&index=9
+# https://www.mtenrero.com/setting-up-a-glusterfs-heketi-data-backend-for-a-kubernetes-bare-metal-installation/
+# alias heketi-cli="heketi-cli --user admin --secret ZeAdminPassword!"
+# heketi-cli cluster create
+# heketi-cli node add --zone 1 --cluster 0a3d4392e18977b29963cc4c3d70aad3 --management-host-name kmaster1 --storage-host-name 10.20.30.40
+# heketi-cli node add --zone 1 --cluster 0a3d4392e18977b29963cc4c3d70aad3 --management-host-name kworker1 --storage-host-name 10.20.30.41
+# heketi-cli node add --zone 1 --cluster 0a3d4392e18977b29963cc4c3d70aad3 --management-host-name kworker2 --storage-host-name 10.20.30.42
+# heketi-cli device add --name /dev/vdb --node a99f8f6e58f389d9510a8c8deff72bf2
+- name: Create directories
+  file:
+    path: "{{item}}"
+    state: directory
+  become: true
+  with_items:
+    - /root/download
+
+- name: Download heketi
+  get_url:
+    url: "https://github.com/heketi/heketi/releases/download/{{heketi_version}}/heketi-{{heketi_version}}.linux.amd64.tar.gz"
+    dest: /root/download/
+    mode: '0440'
+  become: true
+
+- name: Unarchive heketi
+  unarchive:
+    src: "/root/download/{{item}}"
+    dest: /root/download/
+    remote_src: yes
+  with_items:
+    - heketi-{{heketi_version}}.linux.amd64.tar.gz
+  become: true
+
+- name: Copy binaries to /usr/local/bin/
+  copy:
+    src: /root/download/heketi/{{item}}
+    dest: /usr/local/bin/{{item}}
+    mode: a+x
+    remote_src: yes
+  with_items:
+    - heketi
+    - heketi-cli
+  become: true
+
+- name: Ensure group "heketi" exists
+  group:
+    name: heketi
+    state: present
+  become: true
+
+- name: create user heketi
+  user:
+    name: heketi
+    group: heketi
+    generate_ssh_key: yes
+    ssh_key_bits: 2048
+    ssh_key_file: .ssh/id_rsa
+  become: true
+
+- name: Slurp pub key file
+  slurp:
+    src: /home/heketi/.ssh/id_rsa.pub
+  register: rsa_key
+  become: true
+
+- name: Set heketi authorized key for root
+  authorized_key:
+    user: root
+    state: present
+    key: "{{ rsa_key.content | b64decode }}"
+  become: true
+  delegate_to: "{{item}}"
+  with_items: "{{groups[gluster_hosts_group]}}"
+
+- name: Create directories
+  file:
+    path: "{{item}}"
+    state: directory
+    owner: heketi
+    group: heketi
+  become: true
+  with_items:
+    - /var/lib/heketi
+    - /etc/heketi
+    - /var/log/heketi
+
+- name: Create heketi config file
+  template:
+      src: heketi.json 
+      dest: /etc/heketi/heketi.json
+      owner: heketi
+      group: heketi
+  become: true
+
+- name: Create service 
+  template:
+      dest: /etc/systemd/system/heketi.service
+      src: heketi.service
+  become: true
+
+- name: Start service
+  systemd:
+    state: started
+    enabled: true
+    daemon_reload: yes
+    name: heketi
+  become: true
+
+
+- name: Create heketi topology
+  template:
+      src: topology.json 
+      dest: /etc/heketi/topology.json
+      owner: heketi
+      group: heketi
+  become: true
+
+- name: Determine if we have to create a new cluster
+  shell:
+    cmd: "heketi-cli --user admin --secret {{heketi_jwt_admin_password}} cluster list | grep Id | wc -l"
+  register: number_of_clusters
+  changed_when: false
+  become: true
+
+- name: Create the cluster
+  shell:
+    cmd: "heketi-cli  --user admin --secret {{heketi_jwt_admin_password}} topology load --json=/etc/heketi/topology.json"
+  become: true
+  when: number_of_clusters.stdout == "0"
+
+- name: Add an alias for heketi-cli (all users)
+  lineinfile:
+    path: "/etc/profile"
+    line:  "alias heketi-cli=\"heketi-cli --user admin --secret {{heketi_jwt_admin_password}} \""
+    state: present
+  become: yes
+
+- name: Add an alias for heketi-cli (root)
+  lineinfile:
+    path: "/root/.bashrc"
+    line:  "alias heketi-cli=\"heketi-cli --user admin --secret {{heketi_jwt_admin_password}} \""
+    state: present
+  become: yes
+

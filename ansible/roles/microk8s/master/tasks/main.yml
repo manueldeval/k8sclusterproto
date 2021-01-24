@@ -1,0 +1,34 @@
+
+- include_tasks: install_module.yml
+  with_items: "{{ modules }}"
+  loop_control:
+    loop_var: module
+
+- name: Create a directory if it does not exist
+  file:
+    path: /root/.kube/
+    state: directory
+  become: true
+
+- name: "Generate token file"
+  shell:
+    cmd: "microk8s config > /root/.kube/config"
+  become: true
+  changed_when: false
+
+- name: "Get token"
+  fetch:
+    src: /root/.kube/config
+    dest: ../kubernetes/
+    flat: yes
+  become: true
+
+- name: "Wait the master to be up"
+  shell:
+    cmd: "microk8s.kubectl get nodes | grep {{ hostvars[inventory_hostname].hostname }} | wc -l"
+  become: true
+  changed_when: false
+  register: get_nodes_contents
+  until: get_nodes_contents.stdout == "1"
+  retries: 10
+  delay: 6

@@ -1,0 +1,12 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: glusterfs
+  annotations:
+    storageclass.beta.kubernetes.io/is-default-class: "true"
+provisioner: kubernetes.io/glusterfs
+parameters:
+  resturl: "http://{{hostvars[groups['heketi'][0]].service_ip }}:8080"
+  restuser: "admin"
+  restuserkey: "{{heketi_jwt_admin_password}}"
+  volumetype: "replicate:2"

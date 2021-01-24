@@ -1,0 +1,83 @@
+- name: Check all connections 
+  hosts: all 
+  roles:
+    - role: common
+    - role: dnsmasq
+      vars:
+        http_entry_point_ip: "{{hostvars[groups['gateway'][0]]['service_ip']}}"
+        http_entry_point_wildcard_dns: ".my.local-ip.co"
+  tags:
+    - common
+
+- name: Kubernetes nodes
+  hosts: kubernetes
+  roles:
+    - role: microk8s/base
+  tags: 
+    - k8s
+
+- name: Check specific connection to masters 
+  hosts: kubernetes_master 
+  roles:
+    - role: microk8s/master
+      vars:
+        modules:
+          - dns
+          - ingress
+          - rbac
+  tags:
+    - k8s
+
+- name: Check specific connection to nodes 
+  hosts: kubernetes_worker
+  serial: 1 # because the token is invalidate after each call...
+  roles:
+    - role: microk8s/worker
+      vars:
+        - microk8s_master_ip: "{{ hostvars[groups['kubernetes_master'][0]]['service_ip'] }}"
+        - microk8s_master_hostname: "{{ hostvars[groups['kubernetes_master'][0]]['hostname'] }}"
+  tags: 
+    - k8s
+
+- name: Gluster nodes
+  hosts: gluster
+  roles:
+    - role: glusterfs/base
+  tags: 
+    - gluster
+
+- name: Gluster nodes
+  hosts: heketi
+  roles:
+    - role: glusterfs/heketi
+      vars:
+        - gluster_hosts_group: "gluster"
+  tags: 
+    - gluster
+    - heketi
+
+- name: Prepare persistant storage
+  hosts: kubernetes_master
+  roles:
+    - role: k8s_storage
+  tags: 
+    - k8s_storage
+
+
+- name: Reverse Proxy
+  hosts: gateway
+  roles:
+    - role: reverseproxy
+      vars:
+      - k8s_nodes_group: "kubernetes" 
+  tags: 
+    - gateway
+
+#======= KUBERNETES STUFF
+- name: Coredns configuration to use /etc/resolv.conf
+  hosts: kubernetes_master
+  roles:
+    - role: coredns
+  tags: 
+    - coredns
+

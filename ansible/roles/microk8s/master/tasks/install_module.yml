@@ -1,0 +1,13 @@
+- name: "Check if {{module}} is already installed"
+  shell:
+    cmd: "microk8s status -a {{module}} | grep disabled | wc -l"
+  become: true
+  changed_when: false
+  failed_when: false
+  register: module_disabled
+
+- name: "Install {{module}}"
+  shell:
+    cmd: "microk8s enable {{module}}"
+  become: true
+  when: module_disabled.stdout == "1"

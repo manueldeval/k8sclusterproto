@@ -1,0 +1,34 @@
+- name: Install the package "Snapd"
+  apt:
+    name: snapd
+    state: present
+  become: yes
+
+- name: Install the packages needed for gluster storage
+  apt:
+    name: "glusterfs-client"
+    state: present
+  become: yes
+
+- name: Install microk8s
+  snap:
+    name: microk8s
+    channel: "{{microk8s_channel}}"
+    classic: yes
+    state: present
+  become: yes
+
+- name: Add an alias for kubectl (all users)
+  lineinfile:
+    path: "/etc/profile"
+    regexp: "alias kubectl="
+    line:  "alias kubectl='microk8s kubectl'"
+    state: present
+  become: yes
+
+- name: Add an alias for kubectl (root)
+  lineinfile:
+    path: "/root/.bashrc"
+    line:  "alias kubectl='microk8s kubectl'"
+    state: present
+  become: yes

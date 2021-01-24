@@ -1,0 +1,3 @@
+heketi_jwt_user_password: "ZeUserPassword!"
+heketi_jwt_admin_password: "ZeAdminPassword!"
+heketi_device: "/dev/vdb"

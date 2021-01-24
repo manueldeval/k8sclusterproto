@@ -1,0 +1,23 @@
+
+- name: "Get join command"
+  shell:
+    cmd: "microk8s add-node | grep {{microk8s_master_ip}}"
+  become: true
+  delegate_to: "{{ microk8s_master_ip }}"
+  changed_when: false
+  register: get_command
+
+- name: "Add node"
+  shell:
+    cmd: "{{get_command.stdout}}"
+  become: true
+
+- name: "Wait the node to be present on the master side"
+  shell:
+    cmd: "microk8s.kubectl get nodes | grep {{ microk8s_master_hostname }} | wc -l"
+  become: true
+  changed_when: false
+  register: get_nodes_contents
+  until: get_nodes_contents.stdout == "1"
+  retries: 10
+  delay: 6

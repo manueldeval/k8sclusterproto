@@ -1,0 +1,78 @@
+---
+apiVersion: v1 
+kind: Namespace
+metadata:
+  name: platform
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitea-pvc
+  namespace: platform
+  annotations:
+    volume.beta.kubernetes.io/storage-class: glusterfs
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea-deployment
+  namespace: platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitea
+  template:
+    metadata:
+      labels:
+        app: gitea
+    spec:
+      volumes:
+      - name: gitea-volume
+        persistentVolumeClaim:
+          claimName: gitea-pvc
+      containers:
+      - name: gitea-container
+        image: gitea/gitea:1.13
+        ports:
+        - containerPort: 3000
+          name: gitea-web
+        # - containerPort: 22
+        #   name: gitea-ssh
+        volumeMounts:
+        - mountPath: /data
+          name: gitea-volume
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea-service
+  namespace: platform
+spec:
+  selector:
+    app: gitea
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: gitea-ingress
+  namespace: platform
+spec:
+  rules:
+  - host: gitea.my.local-ip.co
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: gitea-service
+          servicePort: 3000

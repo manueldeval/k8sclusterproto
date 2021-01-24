@@ -1,0 +1,37 @@
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+  become: true
+
+- name: start nginx
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+  become: true
+
+- name: template nginx.conf
+  template:
+      src: nginx.conf 
+      dest: /etc/nginx/nginx.conf
+  become: true
+  register: conf
+
+# Use: my.local-ip.co
+- name: copy certs
+  get_url:
+    url: "http://local-ip.co/cert/{{item}}"
+    dest: /etc/nginx/
+  with_items:
+    - server.pem
+    - server.key
+  become: true
+  register: cert
+
+- name: restart nginx
+  service:
+    name: nginx
+    state: restarted
+  become: true
+  when: conf.changed or cert.changed
